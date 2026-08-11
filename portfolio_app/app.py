@@ -9,8 +9,10 @@ chart is a static render of the underlying data.
 """
 
 import contextlib
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -32,6 +34,10 @@ PROJECT_ROOT = Path(__file__).parents[1]
 DB_PATH = PROJECT_ROOT / os.environ.get(
     "DB_PATH", "dbt_pipeline_demo/databases/kroger_pipeline.duckdb"
 )
+RUN_RESULTS_PATH = PROJECT_ROOT / "dbt_pipeline_demo/target/run_results.json"
+
+HOME_URL = os.environ.get("HOME_URL", "https://brucea-lee.com/")
+DBT_DOCS_URL = os.environ.get("DBT_DOCS_URL", "https://brucea-lee.com/docs-kro/")
 
 LOG.info("Database path: %s", DB_PATH)
 
@@ -440,11 +446,65 @@ def build_chart_5() -> "dcc.Graph | dbc.Alert":
 
 
 # ---------------------------------------------------------------------------
+# Freshness metadata
+# ---------------------------------------------------------------------------
+def _fmt_ts(ts: "datetime | None") -> str:
+    """Render a timestamp as 'Aug 11, 2026 · 14:32 UTC' ('unknown' if absent)."""
+    if ts is None:
+        return "unknown"
+    # The pipeline writes fetched_at with DuckDB's now() inside a UTC container,
+    # so naive values are treated as UTC here.
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(timezone.utc).strftime("%b %d, %Y · %H:%M UTC")
+
+
+def _api_fetched_at() -> "datetime | None":
+    """Most recent Kroger API fetch time across the raw tables."""
+    try:
+        sql = """
+            SELECT MAX(fetched_at) FROM (
+                SELECT fetched_at FROM raw.product_prices
+                UNION ALL SELECT fetched_at FROM raw.products
+                UNION ALL SELECT fetched_at FROM raw.locations
+            )
+        """
+        with db_connect() as con:
+            row = con.execute(sql).fetchone()
+        return row[0] if row else None
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning("Could not read API fetch time: %s", exc)
+        return None
+
+
+def _dbt_built_at() -> "datetime | None":
+    """Completion time of the last dbt run, from the run_results artifact.
+
+    Falls back to the DuckDB file's modification time when the artifact is
+    missing (e.g. target/ was cleaned).
+    """
+    try:
+        meta = json.loads(RUN_RESULTS_PATH.read_text(encoding="utf-8"))["metadata"]
+        return datetime.fromisoformat(meta["generated_at"].replace("Z", "+00:00"))
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning("Could not read dbt run_results.json: %s", exc)
+
+    try:
+        return datetime.fromtimestamp(DB_PATH.stat().st_mtime, tz=timezone.utc)
+    except OSError as exc:
+        LOG.warning("Could not stat the DuckDB file: %s", exc)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Layout
 # ---------------------------------------------------------------------------
 def _loading(child):
     """Wrap a chart output in a circular loading spinner."""
     return dcc.Loading(type="circle", children=child)
+
+
+LINK_STYLE = {"fontSize": "12px", "color": "#A9CCE3", "textDecoration": "none"}
 
 
 def _header() -> dbc.Row:
@@ -464,12 +524,19 @@ def _header() -> dbc.Row:
                     ),
                     dbc.Row([
                         dbc.Col(
-                            html.A(
-                                "dbt Docs ↗",
-                                href="https://brucea-lee.com/docs-kro/",
-                                target="_blank",
-                                style={"fontSize": "12px", "color": "#A9CCE3", "textDecoration": "none"},
-                            ),
+                            html.Div([
+                                html.A(
+                                    "⌂ Home",
+                                    href=HOME_URL,
+                                    style=LINK_STYLE,
+                                ),
+                                html.A(
+                                    "dbt Docs ↗",
+                                    href=DBT_DOCS_URL,
+                                    target="_blank",
+                                    style=LINK_STYLE,
+                                ),
+                            ], className="d-flex gap-3"),
                         ),
                         dbc.Col(
                             html.P(
@@ -489,6 +556,59 @@ def _header() -> dbc.Row:
             width=12,
         ),
         className="mt-3 mb-3",
+    )
+
+
+def _footer() -> dbc.Row:
+    """Freshness footer: when the API was last polled and dbt last rebuilt."""
+    return dbc.Row(
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody(
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                html.P(
+                                    [
+                                        html.Span("Data sourced from Kroger API: ",
+                                                  className="fw-bold"),
+                                        _fmt_ts(_api_fetched_at()),
+                                    ],
+                                    className="mb-0",
+                                    style={"color": "#A9CCE3", "fontSize": "12px"},
+                                ),
+                                xs=12, md=6,
+                            ),
+                            dbc.Col(
+                                html.P(
+                                    [
+                                        html.Span("dbt models last built: ",
+                                                  className="fw-bold"),
+                                        _fmt_ts(_dbt_built_at()),
+                                    ],
+                                    className="mb-0",
+                                    style={
+                                        "color": "#A9CCE3",
+                                        "fontSize": "12px",
+                                        "textAlign": "right",
+                                    },
+                                ),
+                                xs=12, md=6,
+                            ),
+                        ],
+                        className="g-2",
+                    ),
+                    className="py-2",
+                ),
+                style={
+                    "backgroundColor": "#003087",
+                    "borderRadius": "8px",
+                    "border": "none",
+                },
+            ),
+            width=12,
+        ),
+        className="mt-2 mb-3",
     )
 
 
@@ -515,8 +635,9 @@ def create_layout() -> dbc.Container:
                     dbc.Col(_loading(build_chart_4()), lg=6, md=12),
                     dbc.Col(_loading(build_chart_5()), lg=6, md=12),
                 ],
-                className="mb-4 g-3",
+                className="mb-2 g-3",
             ),
+            _footer(),
         ],
         fluid=True,
         className="py-2",
