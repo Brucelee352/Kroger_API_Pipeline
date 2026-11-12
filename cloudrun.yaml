@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
         - name: dashboard
-          image: gcr.io/quiet-stacker-450407-v6/kroger-pipeline:8c3dfe7
+          image: gcr.io/quiet-stacker-450407-v6/kroger-pipeline:089b8fc
           ports:
             - name: http1
               containerPort: 8050
