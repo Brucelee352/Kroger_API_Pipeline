@@ -76,8 +76,8 @@ The dashboard queries `main_marts.fact_prices` and `main_marts.mart_location_sal
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Brucelee352/Product_data_pipelining.git
-cd Product_data_pipelining
+git clone https://github.com/Brucelee352/Kroger_API_Pipeline.git
+cd Kroger_API_Pipeline
 ```
 
 ### 2. Install dependencies
@@ -241,4 +241,4 @@ The free tier allows 10,000 API calls a day and a full run uses about 165. If yo
 Bruce Anthony Lee, [brucelee352@gmail.com](mailto:brucelee352@gmail.com)  
 Portfolio: [kro.brucea-lee.com](https://kro.brucea-lee.com)  
 LinkedIn: [linkedin.com/in/brucealee](https://www.linkedin.com/in/brucealee/)  
-Repository: [github.com/Brucelee352/Product_data_pipelining](https://github.com/Brucelee352/Product_data_pipelining)
+Repository: [github.com/Brucelee352/Kroger_API_Pipeline](https://github.com/Brucelee352/Kroger_API_Pipeline)

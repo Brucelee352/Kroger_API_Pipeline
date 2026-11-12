@@ -517,14 +517,14 @@ LINK_STYLE = {
 
 ABOUT_SECTIONS = [
     (
-        "What this is",
+        "Description:",
         "A small end-to-end analytics pipeline built on live data from the "
         "Kroger Public API. It pulls product, pricing, and store-location data, "
         "models it with dbt on DuckDB, and serves the results in this Dash "
         "dashboard.",
     ),
     (
-        "Data source",
+        "Data Source:",
         "The pipeline authenticates with Kroger's OAuth2 endpoint, finds up to "
         "ten stores near each of ten US zip codes (New York, Chicago, Houston, "
         "Los Angeles, Atlanta, Phoenix, Seattle, San Antonio, Miami, Boston), "
@@ -533,14 +533,14 @@ ABOUT_SECTIONS = [
         "makes about 165 API calls.",
     ),
     (
-        "Loading",
+        "Loading:",
         "Raw responses are written to three DuckDB tables: raw.locations, "
         "raw.products, and raw.product_prices. Everything lives in one local "
         "DuckDB file, since the data volume is small enough that object "
         "storage isn't needed.",
     ),
     (
-        "dbt models",
+        "Models:",
         "Staging views (stg_locations, stg_products, stg_prices) drop nulls, "
         "pull the primary category out of the JSON categories array, and "
         "compute discount amount and percentage. The dimension tables "
@@ -550,7 +550,7 @@ ABOUT_SECTIONS = [
         "runs dbt in place with --full-refresh on every run.",
     ),
     (
-        "Dashboard",
+        "Dashboard:",
         "The charts read main_marts.fact_prices and "
         "main_marts.mart_location_sales over a read-only connection and are "
         "rebuilt on each page load. They cover price spread by category, a "
@@ -560,7 +560,7 @@ ABOUT_SECTIONS = [
         "when the dbt models were last built.",
     ),
     (
-        "Stack",
+        "Tooling:",
         "Python 3.12, uv, DuckDB, dbt-duckdb, Dash with Dash Bootstrap "
         "Components, and Plotly. Configuration comes from a .env file.",
     ),
@@ -582,7 +582,7 @@ def _about_modal() -> dbc.Modal:
     )
     return dbc.Modal(
         [
-            dbc.ModalHeader(dbc.ModalTitle("About this pipeline")),
+            dbc.ModalHeader(dbc.ModalTitle("About:")),
             dbc.ModalBody(body),
             dbc.ModalFooter(
                 dbc.Button("Close", id="about-close", color="primary",
@@ -619,16 +619,16 @@ def _header() -> dbc.Row:
                                     href=HOME_URL,
                                     style=LINK_STYLE,
                                 ),
-                                html.A(
-                                    "dbt Docs ↗",
-                                    href=DBT_DOCS_URL,
-                                    target="_blank",
-                                    style=LINK_STYLE,
-                                ),
                                 html.Button(
                                     "ⓘ About",
                                     id="about-open",
                                     n_clicks=0,
+                                    style=LINK_STYLE,
+                                ),
+                                html.A(
+                                    "dbt Docs ↗",
+                                    href=DBT_DOCS_URL,
+                                    target="_blank",
                                     style=LINK_STYLE,
                                 ),
                             ], className="d-flex gap-2 align-items-center"),
