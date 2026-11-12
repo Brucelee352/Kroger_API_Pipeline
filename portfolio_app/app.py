@@ -19,7 +19,7 @@ import duckdb
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, html, dcc
+from dash import Dash, Input, Output, State, html, dcc
 import dash_bootstrap_components as dbc
 from dotenv import load_dotenv
 
@@ -504,7 +504,96 @@ def _loading(child):
     return dcc.Loading(type="circle", children=child)
 
 
-LINK_STYLE = {"fontSize": "12px", "color": "#A9CCE3", "textDecoration": "none"}
+LINK_STYLE = {
+    "fontSize": "14px",
+    "color": "#A9CCE3",
+    "textDecoration": "none",
+    "padding": "4px 10px",
+    "border": "1px solid #A9CCE3",
+    "borderRadius": "6px",
+    "background": "transparent",
+    "lineHeight": "1.4",
+}
+
+ABOUT_SECTIONS = [
+    (
+        "What this is",
+        "A small end-to-end analytics pipeline built on live data from the "
+        "Kroger Public API. It pulls product, pricing, and store-location data, "
+        "models it with dbt on DuckDB, and serves the results in this Dash "
+        "dashboard.",
+    ),
+    (
+        "Data source",
+        "The pipeline authenticates with Kroger's OAuth2 endpoint, finds up to "
+        "ten stores near each of ten US zip codes (New York, Chicago, Houston, "
+        "Los Angeles, Atlanta, Phoenix, Seattle, San Antonio, Miami, Boston), "
+        "and searches eight grocery categories at each store: produce, dairy, "
+        "bakery, meat, frozen, snacks, beverages, and household. A full run "
+        "makes about 165 API calls.",
+    ),
+    (
+        "Loading",
+        "Raw responses are written to three DuckDB tables: raw.locations, "
+        "raw.products, and raw.product_prices. Everything lives in one local "
+        "DuckDB file, since the data volume is small enough that object "
+        "storage isn't needed.",
+    ),
+    (
+        "dbt models",
+        "Staging views (stg_locations, stg_products, stg_prices) drop nulls, "
+        "pull the primary category out of the JSON categories array, and "
+        "compute discount amount and percentage. The dimension tables "
+        "(dim_locations, dim_products) and the fact table fact_prices sit in "
+        "the main_marts schema with three aggregates: mart_location_sales, "
+        "mart_category_distribution, and mart_price_by_category. The pipeline "
+        "runs dbt in place with --full-refresh on every run.",
+    ),
+    (
+        "Dashboard",
+        "The charts read main_marts.fact_prices and "
+        "main_marts.mart_location_sales over a read-only connection and are "
+        "rebuilt on each page load. They cover price spread by category, a "
+        "store map of average price and fulfillment coverage, stock "
+        "availability, promotional discount depth, and price versus discount "
+        "for each category. The footer shows when the API was last polled and "
+        "when the dbt models were last built.",
+    ),
+    (
+        "Stack",
+        "Python 3.12, uv, DuckDB, dbt-duckdb, Dash with Dash Bootstrap "
+        "Components, and Plotly. Configuration comes from a .env file.",
+    ),
+]
+
+
+def _about_modal() -> dbc.Modal:
+    """Scrollable modal describing the pipeline, opened from the header."""
+    body = []
+    for title, text in ABOUT_SECTIONS:
+        body.append(html.H6(title, className="fw-bold mt-3 mb-1",
+                            style={"color": "#003087"}))
+        body.append(html.P(text, className="mb-2", style={"fontSize": "0.95rem"}))
+    body.append(
+        html.P(
+            html.A("Browse the dbt docs ↗", href=DBT_DOCS_URL, target="_blank"),
+            className="mt-3 mb-0",
+        )
+    )
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("About this pipeline")),
+            dbc.ModalBody(body),
+            dbc.ModalFooter(
+                dbc.Button("Close", id="about-close", color="primary",
+                           className="ms-auto", n_clicks=0)
+            ),
+        ],
+        id="about-modal",
+        is_open=False,
+        scrollable=True,
+        size="lg",
+    )
 
 
 def _header() -> dbc.Row:
@@ -536,7 +625,13 @@ def _header() -> dbc.Row:
                                     target="_blank",
                                     style=LINK_STYLE,
                                 ),
-                            ], className="d-flex gap-3"),
+                                html.Button(
+                                    "ⓘ About",
+                                    id="about-open",
+                                    n_clicks=0,
+                                    style=LINK_STYLE,
+                                ),
+                            ], className="d-flex gap-2 align-items-center"),
                         ),
                         dbc.Col(
                             html.P(
@@ -638,6 +733,7 @@ def create_layout() -> dbc.Container:
                 className="mb-2 g-3",
             ),
             _footer(),
+            _about_modal(),
         ],
         fluid=True,
         className="py-2",
@@ -654,6 +750,17 @@ def create_app() -> Dash:
         title="Kroger Product Analytics",
     )
     app.layout = create_layout  # function ref so layout rebuilds per request
+
+    @app.callback(
+        Output("about-modal", "is_open"),
+        Input("about-open", "n_clicks"),
+        Input("about-close", "n_clicks"),
+        State("about-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def _toggle_about(_open, _close, is_open):
+        return not is_open
+
     return app
 
 

@@ -1,20 +1,16 @@
 # Kroger Product Analysis
 
-A Python data pipeline that fetches live product, pricing, and store-location data from the Kroger Public API, transforms it with dbt + DuckDB, and serves an interactive Dash analytics dashboard showing fulfillment KPIs and price trends across Kroger store locations.
+A Python pipeline that pulls product, pricing, and store-location data from the Kroger Public API, transforms it with dbt and DuckDB, and serves a Dash dashboard of fulfillment KPIs and price trends across Kroger stores.
 
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 
----
-
 ## Overview
 
-The pipeline authenticates against the Kroger OAuth2 endpoint, discovers store locations near ten representative US zip codes, fetches live product catalogs and pricing across eight grocery categories, and writes everything to a local DuckDB database. 
+The pipeline gets an OAuth2 token from Kroger, finds stores near ten US zip codes, fetches product catalogs and prices in eight grocery categories, and writes the results to a local DuckDB database.
 
-A dbt project then transforms the raw tables into a clean mart layer. A Dash dashboard reads the mart layer directly and renders five static charts covering pricing distributions, stock availability, promotional discounts, and fulfillment channel coverage.
+A dbt project turns the raw tables into a mart layer. The Dash dashboard reads the marts directly and renders five charts: price distributions, stock availability, promotional discounts, and fulfillment channel coverage, plus a store map.
 
-All credentials and paths are configured through a single `.env` file — there are no hardcoded secrets in the source code.
-
----
+Credentials and paths come from a single `.env` file. The source code has no hardcoded secrets.
 
 ## Architecture
 
@@ -31,13 +27,13 @@ get_access_token()
 run_dbt_ops()                      # dbt deps → dbt run --full-refresh
 ```
 
-**Category search terms:** `produce`, `dairy`, `bakery`, `meat`, `frozen`, `snacks`, `beverages`, `household`
+Category search terms: `produce`, `dairy`, `bakery`, `meat`, `frozen`, `snacks`, `beverages`, `household`
 
-**Zip codes searched:** `10001` (New York), `60601` (Chicago), `77001` (Houston), `90001` (Los Angeles), `30301` (Atlanta), `85001` (Phoenix), `98101` (Seattle), `78201` (San Antonio), `33101` (Miami), `02101` (Boston)
+Zip codes searched: `10001` (New York), `60601` (Chicago), `77001` (Houston), `90001` (Los Angeles), `30301` (Atlanta), `85001` (Phoenix), `98101` (Seattle), `78201` (San Antonio), `33101` (Miami), `02101` (Boston)
 
-The pipeline makes approximately 165 API calls per full run and stays well within the 10,000-call/day rate limit.
+A full run makes about 165 API calls, far under the 10,000-call daily limit.
 
-### dbt Model DAG
+### dbt model DAG
 
 ```
 Source (raw schema)
@@ -67,17 +63,13 @@ Mart aggregates (tables — main_marts schema)
 └── mart_price_by_category      ← per-category per date: percentiles, min/max, avg discount
 ```
 
-The dashboard queries `main_marts.fact_prices` and `main_marts.mart_location_sales` directly.
-
----
+The dashboard queries `main_marts.fact_prices` and `main_marts.mart_location_sales`.
 
 ## Prerequisites
 
-- **Python 3.12.x** — exactly 3.12; 3.13+ breaks mashumaro, a transitive dbt dependency
-- **uv** — package manager ([install instructions](https://docs.astral.sh/uv/getting-started/installation/))
-- **Kroger Developer account** — register at [https://developer.kroger.com](https://developer.kroger.com) to obtain `KROGER_CLIENT_ID` and `KROGER_CLIENT_SECRET`; the free tier supports up to 10,000 API calls per day
-
----
+- Python 3.12.x. It has to be 3.12, because 3.13 and later break mashumaro, which dbt depends on.
+- uv, the package manager ([install instructions](https://docs.astral.sh/uv/getting-started/installation/)).
+- A Kroger Developer account. Register at [https://developer.kroger.com](https://developer.kroger.com) to get `KROGER_CLIENT_ID` and `KROGER_CLIENT_SECRET`. The free tier allows 10,000 API calls a day.
 
 ## Setup
 
@@ -94,7 +86,7 @@ cd Product_data_pipelining
 uv sync
 ```
 
-This creates a `.venv` and installs all locked dependencies from `uv.lock`. Do not use `pip install` directly.
+This creates `.venv` and installs the locked dependencies from `uv.lock`. Don't use `pip install` directly.
 
 ### 3. Configure environment variables
 
@@ -102,7 +94,7 @@ This creates a `.venv` and installs all locked dependencies from `uv.lock`. Do n
 cp .env.example .env
 ```
 
-Open `.env` and fill in your Kroger API credentials (see [Configuration](#configuration) below).
+Open `.env` and add your Kroger API credentials (see [Configuration](#configuration)).
 
 ### 4. Run the pipeline
 
@@ -116,7 +108,7 @@ Or, with the virtual environment activated:
 run-pipeline
 ```
 
-The pipeline will authenticate, fetch data, populate DuckDB, and run dbt transformations automatically. Logs are written to both stdout and `logs/pipeline.log`. A full run takes two to five minutes depending on network latency.
+The pipeline authenticates, fetches data, loads DuckDB, and runs the dbt models. Logs go to stdout and `logs/pipeline.log`. A full run takes two to five minutes, depending on network latency.
 
 ### 5. Launch the dashboard
 
@@ -130,13 +122,11 @@ Or, with the virtual environment activated:
 dashboard
 ```
 
-Open [http://127.0.0.1:8050](http://127.0.0.1:8050) in your browser. The dashboard requires the pipeline to have run at least once so that `dbt_pipeline_demo/databases/kroger_pipeline.duckdb` exists.
-
----
+Open [http://127.0.0.1:8050](http://127.0.0.1:8050). The pipeline must have run at least once so that `dbt_pipeline_demo/databases/kroger_pipeline.duckdb` exists.
 
 ## Configuration
 
-All configuration is read from the `.env` file in the project root. Copy `.env.example` to `.env` and set each value.
+Configuration is read from `.env` in the project root. Copy `.env.example` to `.env` and set each value.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -145,38 +135,36 @@ All configuration is read from the `.env` file in the project root. Copy `.env.e
 | `KROGER_BASE_URL` | No | `https://api.kroger.com` | Kroger API base URL |
 | `DB_PATH` | No | `dbt_pipeline_demo/databases/kroger_pipeline.duckdb` | Path to the DuckDB file, relative to the project root |
 | `LOG_LEVEL` | No | `INFO` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `HOME_URL` | No | `https://brucea-lee.com/` | Target of the dashboard's Home link |
+| `DBT_DOCS_URL` | No | `https://brucea-lee.com/docs-kro/` | Target of the dashboard's dbt Docs link |
 
-Kroger OAuth2 tokens expire after approximately 30 minutes. The pipeline fetches a single token at startup, which is sufficient for a full run.
-
----
+Kroger OAuth2 tokens expire after about 30 minutes. The pipeline gets one token at startup, which lasts the whole run.
 
 ## Dashboard
 
-The dashboard is a single static page with no controls. All five charts are rendered from the mart tables in DuckDB at startup.
+The dashboard is a single page with no filters. All five charts are built from the DuckDB mart tables on each page load. The header has links to the home page and the dbt docs, and an About button that opens a short description of the pipeline.
 
-### Chart 1 — Product Price Distribution (Box & Whisker)
+### Chart 1: Product price distribution (box plot)
 
-Box plot of regular prices grouped by product category. Categories are sorted by median price descending. If Q1 2026 price data is present the chart is scoped to that quarter; otherwise it falls back to the full date range available in the database.
+Regular prices grouped by product category, sorted by median price, highest first. If the database has Q1 2026 prices, the chart uses only that quarter; otherwise it uses the full date range.
 
-### Chart 2 — Store Fulfillment KPIs & Avg Price by Location (Choropleth + Scatter Map)
+### Chart 2: Store fulfillment KPIs and average price by location (map)
 
-US map combining two overlapping layers. The choropleth shades each state by average catalog price across all stores in that state. A scatter overlay places a bubble at each discovered store location, sized by the number of unique products in its catalog and colored by average price. Hovering a bubble shows the store name, city, zip code, average price, total product count, and a breakdown of physical versus online fulfillment counts.
+A US map with two layers. The choropleth shades each state by the average catalog price of its stores. On top of it, each store is a bubble sized by the number of unique products in its catalog and colored by average price. Hovering over a bubble shows the store name, city, zip code, average price, product count, and the split between physical and online fulfillment counts.
 
-### Chart 3 — Stock Availability by Category (Stacked Bar)
+### Chart 3: Stock availability by category (stacked bar)
 
-Horizontal stacked bar chart showing the share of items in each stock status (`In stock (high)`, `Low stock`, `Out of stock`) per category, normalized to 100 %. Categories are ordered from highest to lowest out-of-stock rate.
+Horizontal bars showing the share of items per category in each stock status (`In stock (high)`, `Low stock`, `Out of stock`), normalized to 100%. Categories are ordered by out-of-stock rate, highest first.
 
-### Chart 4 — Average Promotional Discount Depth by Category (Bar)
+### Chart 4: Average promotional discount by category (bar)
 
-Horizontal bar chart of the average promotional discount percentage per category, restricted to categories with at least five promotional items. Ordered from deepest to shallowest discount. Hover shows average regular price and promotional item count alongside the discount percentage.
+Horizontal bars of the average promotional discount per category, for categories with at least five items on promotion, ordered from deepest discount to shallowest. Hovering shows the average regular price and the number of promotional items.
 
-### Chart 5 — Category Value Map (Bubble Scatter)
+### Chart 5: Category value map (bubble scatter)
 
-Scatter plot with average regular price on the X axis and average promotional discount depth on the Y axis. Each bubble represents one category and is sized by the number of distinct products. Median reference lines divide the plot into four quadrants for quick identification of high-price/high-discount versus low-price/low-discount categories.
+Average regular price on the X axis and average promotional discount on the Y axis. Each bubble is a category, sized by its number of distinct products. Median lines split the plot into quadrants, so you can see at a glance which categories are expensive and heavily discounted and which are cheap with small discounts.
 
----
-
-## Project Structure
+## Project structure
 
 ```
 .
@@ -210,23 +198,21 @@ Scatter plot with average regular price on the X axis and average promotional di
 └── uv.lock                        # locked dependency graph
 ```
 
----
-
 ## Troubleshooting
 
 ### Wrong Python version
 
-The package specifies `requires-python = ">= 3.12, < 3.13"`. If `uv sync` fails or dbt throws import errors, verify your Python version:
+The package requires `requires-python = ">= 3.12, < 3.13"`. If `uv sync` fails or dbt throws import errors, check your Python version:
 
 ```bash
 python --version
 ```
 
-Install Python 3.12 via [python.org](https://www.python.org/downloads/) or `pyenv`, then re-run `uv sync`.
+Install Python 3.12 from [python.org](https://www.python.org/downloads/) or with `pyenv`, then run `uv sync` again.
 
 ### dbt cannot find the database
 
-The dbt profile in `.dbt/profiles.yml` uses the relative path `databases/kroger_pipeline.duckdb`. This path resolves correctly only when dbt is invoked from inside `dbt_pipeline_demo/`. The pipeline handles this automatically via an internal `os.chdir()`. If you run dbt manually from the project root it will fail to locate the database. Always invoke dbt from `dbt_pipeline_demo/`:
+The dbt profile in `.dbt/profiles.yml` points to the relative path `databases/kroger_pipeline.duckdb`, which only resolves when dbt runs from inside `dbt_pipeline_demo/`. The pipeline changes into that directory with `os.chdir()` before calling dbt. If you run dbt by hand, run it from `dbt_pipeline_demo/`:
 
 ```bash
 cd dbt_pipeline_demo
@@ -236,25 +222,23 @@ cd ..
 
 ### Missing or invalid Kroger credentials
 
-If the pipeline exits with `KROGER_CLIENT_ID and KROGER_CLIENT_SECRET must be set`, confirm that:
+If the pipeline exits with `KROGER_CLIENT_ID and KROGER_CLIENT_SECRET must be set`, check that:
 
-1. You have a registered application at [https://developer.kroger.com](https://developer.kroger.com)
-2. Your `.env` file exists in the project root and contains the correct values
-3. The virtual environment is active when you run the pipeline (the pipeline will print activation instructions and exit if no virtual environment is detected)
+1. You have a registered application at [https://developer.kroger.com](https://developer.kroger.com).
+2. `.env` exists in the project root and has the correct values.
+3. The virtual environment is active. If it isn't, the pipeline prints activation instructions and exits.
 
 ### Dashboard shows empty charts
 
-The dashboard requires a populated DuckDB file. Run `uv run run-pipeline` first. If a specific chart is blank after the pipeline has run successfully, check `logs/pipeline.log` for dbt errors — a failed model will leave the corresponding mart table missing.
+The dashboard needs a populated DuckDB file, so run `uv run run-pipeline` first. If one chart is still blank after a successful run, look in `logs/pipeline.log` for dbt errors. A failed model leaves its mart table missing.
 
 ### Rate limit errors from the Kroger API
 
-The free developer tier allows 10,000 API calls per day. A full run uses approximately 165 calls. If you receive HTTP 429 responses, wait until your daily quota resets (midnight UTC) before re-running.
-
----
+The free tier allows 10,000 API calls a day and a full run uses about 165. If you get HTTP 429 responses, wait for the quota to reset at midnight UTC and run again.
 
 ## Author
 
-Bruce Anthony Lee — [brucelee352@gmail.com](mailto:brucelee352@gmail.com)  
+Bruce Anthony Lee, [brucelee352@gmail.com](mailto:brucelee352@gmail.com)  
 Portfolio: [kro.brucea-lee.com](https://kro.brucea-lee.com)  
 LinkedIn: [linkedin.com/in/brucealee](https://www.linkedin.com/in/brucealee/)  
 Repository: [github.com/Brucelee352/Product_data_pipelining](https://github.com/Brucelee352/Product_data_pipelining)
